@@ -38,16 +38,16 @@ resource "aws_lambda_layer_version" "common" {
 
 locals {
   lambda_environment = {
-    CLOUDVAULT_BUCKET           = aws_s3_bucket.files.id
-    CLOUDVAULT_TABLE            = aws_dynamodb_table.files.name
-    ALLOWED_FILE_TYPES          = join(",", var.allowed_file_types)
-    MAX_FILE_SIZE_BYTES         = tostring(var.max_file_size_bytes)
-    PRESIGNED_URL_TTL_SECONDS   = tostring(var.presigned_url_ttl_seconds)
-    LOG_LEVEL                   = var.log_level
-    S3_SSE_ALGORITHM            = "AES256"
-    CORS_ALLOWED_ORIGINS        = join(",", var.cors_allowed_origins)
-    CORS_ALLOWED_HEADERS        = join(",", var.cors_allowed_headers)
-    CORS_ALLOWED_METHODS        = join(",", var.cors_allowed_methods)
+    CLOUDVAULT_BUCKET         = aws_s3_bucket.files.id
+    CLOUDVAULT_TABLE          = aws_dynamodb_table.files.name
+    ALLOWED_FILE_TYPES        = join(",", var.allowed_file_types)
+    MAX_FILE_SIZE_BYTES       = tostring(var.max_file_size_bytes)
+    PRESIGNED_URL_TTL_SECONDS = tostring(var.presigned_url_ttl_seconds)
+    LOG_LEVEL                 = var.log_level
+    S3_SSE_ALGORITHM          = "AES256"
+    CORS_ALLOWED_ORIGINS      = join(",", var.cors_allowed_origins)
+    CORS_ALLOWED_HEADERS      = join(",", var.cors_allowed_headers)
+    CORS_ALLOWED_METHODS      = join(",", var.cors_allowed_methods)
   }
 }
 
