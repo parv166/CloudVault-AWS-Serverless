@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(56, 189, 248, 0.12), transparent 28rem),
+    linear-gradient(180deg, #f8fafc 0%, #eef4f8 48%, #f8fafc 100%);
+  color: #0f172a;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.35);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .panel {
+    @apply border border-slate-200 bg-white shadow-panel;
+    border-radius: 8px;
+  }
+
+  .icon-button {
+    @apply inline-flex h-10 w-10 items-center justify-center border border-slate-200 bg-white text-slate-600 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50;
+    border-radius: 8px;
+  }
+
+  .primary-button {
+    @apply inline-flex items-center justify-center gap-2 bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300;
+    border-radius: 8px;
+  }
+
+  .danger-button {
+    @apply inline-flex items-center justify-center gap-2 bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300;
+    border-radius: 8px;
+  }
+}
