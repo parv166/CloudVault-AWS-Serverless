@@ -28,7 +28,9 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(`${options.method || "GET"} ${path} failed with ${response.status}: ${rawBody}`);
+    throw new Error(
+      `${options.method || "GET"} ${path} failed with ${response.status}: ${rawBody}`
+    );
   }
 
   return body;
@@ -37,6 +39,7 @@ async function request(path, options = {}) {
 async function main() {
   console.log(`Testing CloudVault API: ${apiUrl}`);
 
+  // Upload test file
   const uploadResponse = await request("/files/upload", {
     method: "POST",
     body: JSON.stringify({
@@ -47,42 +50,83 @@ async function main() {
   });
 
   const file = uploadResponse?.file;
+
   if (!file?.file_id) {
     throw new Error("Upload response did not include file.file_id.");
   }
+
   console.log(`Uploaded ${file.file_name} (${file.file_id})`);
 
+
+  // Verify list API
   const listResponse = await request("/files");
-  const files = Array.isArray(listResponse?.files) ? listResponse.files : [];
+
+  const files = Array.isArray(listResponse?.files)
+    ? listResponse.files
+    : [];
+
   if (!files.some((item) => item.file_id === file.file_id)) {
-    throw new Error("Uploaded file was not returned by GET /files.");
+    throw new Error(
+      "Uploaded file was not returned by GET /files."
+    );
   }
+
   console.log("List verified");
 
-  const downloadResponse = await request(`/files/${encodeURIComponent(file.file_id)}/download`);
-  if (!downloadResponse?.download_url) {
-    throw new Error("Download response did not include download_url.");
- }
 
- if (!downloadResult.ok) {
+  // Get presigned download URL
+  const downloadResponse = await request(
+    `/files/${encodeURIComponent(file.file_id)}/download`
+  );
+
+  if (!downloadResponse?.download_url) {
+    throw new Error(
+      "Download response did not include download_url."
+    );
+  }
+
+
+  // Download from S3
+  const downloadResult = await fetch(
+    downloadResponse.download_url
+  );
+
+
+  // Print full S3 error if download fails
+  if (!downloadResult.ok) {
     const errorBody = await downloadResult.text();
 
     throw new Error(
-        `Pre-signed download failed with ${downloadResult.status}: ${errorBody}`
+      `Pre-signed download failed with ${downloadResult.status}: ${errorBody}`
     );
- }
-
-  const downloadedContent = await downloadResult.text();
-  if (downloadedContent !== testContent) {
-    throw new Error("Downloaded file content did not match uploaded content.");
   }
+
+
+  // Verify content
+  const downloadedContent = await downloadResult.text();
+
+  if (downloadedContent !== testContent) {
+    throw new Error(
+      "Downloaded file content did not match uploaded content."
+    );
+  }
+
   console.log("Download verified");
 
-  await request(`/files/${encodeURIComponent(file.file_id)}`, { method: "DELETE" });
+
+  // Delete file
+  await request(
+    `/files/${encodeURIComponent(file.file_id)}`,
+    {
+      method: "DELETE",
+    }
+  );
+
   console.log("Delete verified");
 
   console.log("CloudVault API smoke test passed");
 }
+
 
 main().catch((error) => {
   console.error(error.message);
