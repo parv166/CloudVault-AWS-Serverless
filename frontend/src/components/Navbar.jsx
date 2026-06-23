@@ -1,5 +1,3 @@
-import React from "react";
-
 import { Cloud, Files, LayoutDashboard } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
