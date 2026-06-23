@@ -62,12 +62,15 @@ async function main() {
   const downloadResponse = await request(`/files/${encodeURIComponent(file.file_id)}/download`);
   if (!downloadResponse?.download_url) {
     throw new Error("Download response did not include download_url.");
-  }
+ }
 
-  const downloadResult = await fetch(downloadResponse.download_url);
-  if (!downloadResult.ok) {
-    throw new Error(`Pre-signed download failed with ${downloadResult.status}.`);
-  }
+ if (!downloadResult.ok) {
+    const errorBody = await downloadResult.text();
+
+    throw new Error(
+        `Pre-signed download failed with ${downloadResult.status}: ${errorBody}`
+    );
+ }
 
   const downloadedContent = await downloadResult.text();
   if (downloadedContent !== testContent) {
