@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from urllib.parse import unquote
 
 from cloudvault_common import storage
 from cloudvault_common.config import load_config
@@ -34,12 +33,11 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             expires_in_seconds=config.presigned_url_ttl_seconds,
         )
 
-        # keep AWS signature URL untouched
-        download_url = unquote(download_url)
-
         logger.info(
             "Generated download URL",
-            extra={"file_id": file_id},
+            extra={
+                "file_id": file_id,
+            },
         )
 
         return response(
@@ -53,7 +51,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         )
 
     except CloudVaultError as exc:
-        logger.warning("Request failed: %s", exc)
+        logger.warning(
+            "Request failed: %s",
+            exc,
+        )
 
         return error_response(
             exc.status_code,
