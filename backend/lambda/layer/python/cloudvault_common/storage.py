@@ -49,10 +49,12 @@ def upload_object(
 ) -> None:
     put_args: dict[str, Any] = {
         "Bucket": bucket_name,
-        "Key": key,
+        "Key": key.lstrip("/"),
         "Body": content,
         "ContentType": content_type,
-        "Metadata": {"file-id": file_id},
+        "Metadata": {
+            "file-id": file_id,
+        },
     }
 
     if sse_algorithm:
@@ -61,27 +63,47 @@ def upload_object(
     get_s3_client().put_object(**put_args)
 
 
-def delete_object(*, bucket_name: str, key: str) -> None:
+def delete_object(
+    *,
+    bucket_name: str,
+    key: str,
+) -> None:
     get_s3_client().delete_object(
         Bucket=bucket_name,
-        Key=key,
+        Key=key.lstrip("/"),
     )
 
 
-def save_metadata(*, table_name: str, metadata: dict[str, Any]) -> None:
-    get_table(table_name).put_item(Item=metadata)
+def save_metadata(
+    *,
+    table_name: str,
+    metadata: dict[str, Any],
+) -> None:
+    get_table(table_name).put_item(
+        Item=metadata,
+    )
 
 
-def list_metadata(*, table_name: str) -> list[dict[str, Any]]:
+def list_metadata(
+    *,
+    table_name: str,
+) -> list[dict[str, Any]]:
+
     table = get_table(table_name)
+
     items: list[dict[str, Any]] = []
     scan_kwargs: dict[str, Any] = {}
 
     while True:
         result = table.scan(**scan_kwargs)
-        items.extend(result.get("Items", []))
 
-        last_key = result.get("LastEvaluatedKey")
+        items.extend(
+            result.get("Items", [])
+        )
+
+        last_key = result.get(
+            "LastEvaluatedKey"
+        )
 
         if not last_key:
             break
@@ -91,9 +113,16 @@ def list_metadata(*, table_name: str) -> list[dict[str, Any]]:
     return items
 
 
-def get_metadata(*, table_name: str, file_id: str) -> dict[str, Any]:
+def get_metadata(
+    *,
+    table_name: str,
+    file_id: str,
+) -> dict[str, Any]:
+
     result = get_table(table_name).get_item(
-        Key={"file_id": file_id}
+        Key={
+            "file_id": file_id,
+        }
     )
 
     item = result.get("Item")
@@ -112,7 +141,9 @@ def delete_metadata(
     file_id: str,
 ) -> None:
     get_table(table_name).delete_item(
-        Key={"file_id": file_id}
+        Key={
+            "file_id": file_id,
+        }
     )
 
 
@@ -122,11 +153,13 @@ def create_download_url(
     key: str,
     expires_in_seconds: int,
 ) -> str:
+    clean_key = key.lstrip("/")
+
     return get_s3_client().generate_presigned_url(
         ClientMethod="get_object",
         Params={
             "Bucket": bucket_name,
-            "Key": key,
+            "Key": clean_key,
         },
         ExpiresIn=expires_in_seconds,
     )
