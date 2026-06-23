@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import boto3
+from botocore.config import Config
 
 from .errors import NotFoundError
 
@@ -12,15 +14,23 @@ _dynamodb_resource = None
 
 def get_s3_client():
     global _s3_client
+
     if _s3_client is None:
-        _s3_client = boto3.client("s3")
+        _s3_client = boto3.client(
+            "s3",
+            region_name=os.environ.get("AWS_REGION"),
+            config=Config(signature_version="s3v4"),
+        )
+
     return _s3_client
 
 
 def get_dynamodb_resource():
     global _dynamodb_resource
+
     if _dynamodb_resource is None:
         _dynamodb_resource = boto3.resource("dynamodb")
+
     return _dynamodb_resource
 
 
@@ -52,7 +62,10 @@ def upload_object(
 
 
 def delete_object(*, bucket_name: str, key: str) -> None:
-    get_s3_client().delete_object(Bucket=bucket_name, Key=key)
+    get_s3_client().delete_object(
+        Bucket=bucket_name,
+        Key=key,
+    )
 
 
 def save_metadata(*, table_name: str, metadata: dict[str, Any]) -> None:
@@ -69,24 +82,38 @@ def list_metadata(*, table_name: str) -> list[dict[str, Any]]:
         items.extend(result.get("Items", []))
 
         last_key = result.get("LastEvaluatedKey")
+
         if not last_key:
             break
+
         scan_kwargs["ExclusiveStartKey"] = last_key
 
     return items
 
 
 def get_metadata(*, table_name: str, file_id: str) -> dict[str, Any]:
-    result = get_table(table_name).get_item(Key={"file_id": file_id})
+    result = get_table(table_name).get_item(
+        Key={"file_id": file_id}
+    )
+
     item = result.get("Item")
 
     if not item:
-        raise NotFoundError(f"File '{file_id}' was not found")
+        raise NotFoundError(
+            f"File '{file_id}' was not found"
+        )
+
     return item
 
 
-def delete_metadata(*, table_name: str, file_id: str) -> None:
-    get_table(table_name).delete_item(Key={"file_id": file_id})
+def delete_metadata(
+    *,
+    table_name: str,
+    file_id: str,
+) -> None:
+    get_table(table_name).delete_item(
+        Key={"file_id": file_id}
+    )
 
 
 def create_download_url(
@@ -96,7 +123,10 @@ def create_download_url(
     expires_in_seconds: int,
 ) -> str:
     return get_s3_client().generate_presigned_url(
-        "get_object",
-        Params={"Bucket": bucket_name, "Key": key},
+        ClientMethod="get_object",
+        Params={
+            "Bucket": bucket_name,
+            "Key": key,
+        },
         ExpiresIn=expires_in_seconds,
     )
