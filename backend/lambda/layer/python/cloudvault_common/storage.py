@@ -128,12 +128,13 @@ def create_download_url(
     key: str,
     expires_in_seconds: int,
 ) -> str:
-
     return get_s3_client().generate_presigned_url(
-        "get_object",
+        ClientMethod="get_object",
         Params={
             "Bucket": bucket_name,
             "Key": key,
+            "ResponseContentDisposition": "attachment",
         },
         ExpiresIn=expires_in_seconds,
+        HttpMethod="GET",
     )
