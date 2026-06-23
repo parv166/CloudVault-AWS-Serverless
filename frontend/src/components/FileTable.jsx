@@ -1,5 +1,3 @@
-import React from "react";
-
 import { Download, Loader2, Trash2 } from "lucide-react";
 
 import {
