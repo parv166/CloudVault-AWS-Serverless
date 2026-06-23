@@ -34,6 +34,7 @@ jobs:
         working-directory: backend
         run: pytest
 
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -51,25 +52,39 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
+
 
       - name: Terraform format check
         run: terraform -chdir=backend/terraform fmt -check
 
+
       - name: Terraform init
         run: terraform -chdir=backend/terraform init -backend=false
+
 
       - name: Terraform validate
         run: terraform -chdir=backend/terraform validate
 
+
       - name: Package Lambda source
         run: |
           mkdir -p backend/dist
+
           for fn in upload_file list_files download_file delete_file; do
-            (cd "backend/lambda/${fn}" && zip -qr "../../dist/${fn}.zip" .)
+            (
+              cd "backend/lambda/${fn}"
+              zip -qr "../../dist/${fn}.zip" .
+            )
           done
-          (cd backend/lambda/layer && zip -qr "../../dist/cloudvault-common-layer.zip" .)
+
+          (
+            cd backend/lambda/layer
+            zip -qr "../../dist/cloudvault-common-layer.zip" .
+          )
+
 
       - name: Upload Lambda packages
         uses: actions/upload-artifact@v4
@@ -77,78 +92,144 @@ jobs:
           name: cloudvault-lambda-packages
           path: backend/dist/*.zip
 
+
+
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+
     needs: test-and-validate
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
+
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
+
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
+
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
+
       - name: Terraform init
         run: terraform -chdir=backend/terraform init
+
 
       - name: Terraform plan
         env:
           CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS }}
+
         run: |
-          TF_ARGS=(-var="aws_region=${{ secrets.AWS_REGION }}")
+
+          TF_ARGS=(-var="aws_region=${{ vars.AWS_REGION }}")
+
           if [ -n "$CORS_ALLOWED_ORIGINS" ]; then
-            TF_ARGS+=("-var=cors_allowed_origins=${CORS_ALLOWED_ORIGINS}")
+            TF_ARGS+=(
+              "-var=cors_allowed_origins=${CORS_ALLOWED_ORIGINS}"
+            )
           fi
-          terraform -chdir=backend/terraform plan -out=cloudvault.tfplan "${TF_ARGS[@]}"
+
+          terraform -chdir=backend/terraform plan \
+          -out=cloudvault.tfplan \
+          "${TF_ARGS[@]}"
+
 
       - name: Terraform apply
-        run: terraform -chdir=backend/terraform apply -auto-approve cloudvault.tfplan
+        run: |
+          terraform -chdir=backend/terraform apply \
+          -auto-approve \
+          cloudvault.tfplan
+
+
 
       - name: Capture Terraform outputs
         run: |
+
           echo "API_ENDPOINT=$(terraform -chdir=backend/terraform output -raw api_endpoint)" >> "$GITHUB_ENV"
+
           echo "FRONTEND_BUCKET=$(terraform -chdir=backend/terraform output -raw frontend_bucket_name)" >> "$GITHUB_ENV"
+
           echo "CLOUDFRONT_DISTRIBUTION_ID=$(terraform -chdir=backend/terraform output -raw frontend_cloudfront_distribution_id)" >> "$GITHUB_ENV"
+
           echo "FRONTEND_URL=$(terraform -chdir=backend/terraform output -raw frontend_url)" >> "$GITHUB_ENV"
+
+
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
+
         with:
           node-version: "22"
+
+
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install
 
+
+
       - name: Check API CORS
         working-directory: frontend
-        run: API_URL="$API_ENDPOINT" ORIGIN_URL="$FRONTEND_URL" npm run smoke:cors
+
+        run: |
+          API_URL="$API_ENDPOINT" \
+          ORIGIN_URL="$FRONTEND_URL" \
+          npm run smoke:cors
+
+
 
       - name: Test API file lifecycle
         working-directory: frontend
-        run: API_URL="$API_ENDPOINT" npm run smoke:api
+
+        run: |
+          API_URL="$API_ENDPOINT" \
+          npm run smoke:api
+
+
 
       - name: Build frontend for production
         working-directory: frontend
-        run: VITE_API_URL="$API_ENDPOINT" npm run build
+
+        run: |
+          VITE_API_URL="$API_ENDPOINT" \
+          npm run build
+
+
 
       - name: Upload frontend assets
+
         run: |
-          aws s3 sync frontend/dist "s3://${FRONTEND_BUCKET}" \
-            --delete \
-            --exclude "index.html" \
-            --cache-control "public,max-age=31536000,immutable"
-          aws s3 cp frontend/dist/index.html "s3://${FRONTEND_BUCKET}/index.html" \
-            --cache-control "no-cache,no-store,must-revalidate" \
-            --content-type "text/html"
+
+          aws s3 sync frontend/dist \
+          "s3://${FRONTEND_BUCKET}" \
+          --delete \
+          --exclude "index.html" \
+          --cache-control "public,max-age=31536000,immutable"
+
+
+          aws s3 cp \
+          frontend/dist/index.html \
+          "s3://${FRONTEND_BUCKET}/index.html" \
+          --cache-control "no-cache,no-store,must-revalidate" \
+          --content-type "text/html"
+
+
 
       - name: Invalidate CloudFront
-        run: aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*"
+
+        run: |
+
+          aws cloudfront create-invalidation \
+          --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+          --paths "/*"
