@@ -1,6 +1,16 @@
-import { AlertCircle, CheckCircle2, Loader2, UploadCloud } from "lucide-react";
-import { useRef, useState } from "react";
-import { getApiErrorMessage, uploadFile } from "../services/api.js";
+import React, { useRef, useState } from "react";
+
+import {
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  UploadCloud,
+} from "lucide-react";
+
+import {
+  getApiErrorMessage,
+  uploadFile,
+} from "../services/api.js";
 
 const MAX_CLIENT_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
