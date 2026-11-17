@@ -34,7 +34,7 @@ operations through an API.
                                         │ JWT
                                         ▼
 ┌─────────────────┐          ┌─────────────────────────┐
-│ CloudFront      │─────────▶│     API Gateway         │
+│ CloudFront      │───────── │     API Gateway         │
 │ + S3 Frontend   │          │      HTTP API           │
 └─────────────────┘          │      JWT Authorizer     │
                              └────────────┬────────────┘
