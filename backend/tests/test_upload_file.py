@@ -7,7 +7,13 @@ from conftest import load_lambda_module
 
 
 def _event(payload: dict):
-    return {"body": json.dumps(payload)}
+    return {"body": json.dumps(payload), "requestContext": {
+    "authorizer": {
+        "jwt": {
+            "claims": {"sub": "cognito-user-123"}
+        }
+    }
+}}
 
 
 def test_upload_file_success(monkeypatch):
@@ -41,6 +47,8 @@ def test_upload_file_success(monkeypatch):
     assert uploaded["content"] == b"hello cloudvault"
     assert saved["table_name"] == "test-cloudvault-table"
     assert saved["metadata"]["file_id"] == body["file"]["file_id"]
+    assert saved["metadata"]["user_id"] == "cognito-user-123"
+    assert uploaded["key"].startswith("uploads/cognito-user-123/")
 
 
 def test_upload_file_rejects_disallowed_type():

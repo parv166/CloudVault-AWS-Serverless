@@ -12,11 +12,12 @@
     "smoke:cors": "node scripts/check-cors.mjs"
   },
   "dependencies": {
+    "aws-amplify": "^6.22.2",
     "axios": "^1.7.9",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.1"
+    "react-router-dom": "^7.18.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

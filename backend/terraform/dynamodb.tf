@@ -1,7 +1,13 @@
 resource "aws_dynamodb_table" "files" {
   name         = "${local.name_prefix}-files"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "file_id"
+  hash_key     = "user_id"
+  range_key    = "file_id"
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
 
   attribute {
     name = "file_id"
@@ -9,7 +15,7 @@ resource "aws_dynamodb_table" "files" {
   }
 
   point_in_time_recovery {
-    enabled = true
+    enabled = false
   }
 
   server_side_encryption {

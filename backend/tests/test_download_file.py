@@ -10,20 +10,31 @@ def test_download_file_returns_presigned_url(monkeypatch):
     app = load_lambda_module("download_file", "download_file_app")
     metadata = {"file_id": "file-1", "s3_key": "uploads/file-1/report.pdf"}
 
-    monkeypatch.setattr(app.storage, "get_metadata", lambda **kwargs: metadata)
+    lookup = {}
+    def get_metadata(**kwargs):
+        lookup.update(kwargs)
+        return metadata
+    monkeypatch.setattr(app.storage, "get_metadata", get_metadata)
     monkeypatch.setattr(
         app.storage,
         "create_download_url",
         lambda **kwargs: "https://signed.example.com/file-1",
     )
 
-    result = app.handler({"pathParameters": {"id": "file-1"}}, None)
+    result = app.handler({"pathParameters": {"id": "file-1"}, "requestContext": {
+    "authorizer": {
+        "jwt": {
+            "claims": {"sub": "cognito-user-123"}
+        }
+    }
+}}, None)
     body = json.loads(result["body"])
 
     assert result["statusCode"] == 200
     assert body["download_url"] == "https://signed.example.com/file-1"
     assert body["expires_in"] == 300
     assert body["file"] == metadata
+    assert lookup["user_id"] == "cognito-user-123"
 
 
 def test_download_file_returns_404_when_metadata_missing(monkeypatch):
@@ -34,7 +45,13 @@ def test_download_file_returns_404_when_metadata_missing(monkeypatch):
         lambda **kwargs: (_ for _ in ()).throw(NotFoundError("File 'missing' was not found")),
     )
 
-    result = app.handler({"pathParameters": {"id": "missing"}}, None)
+    result = app.handler({"pathParameters": {"id": "missing"}, "requestContext": {
+    "authorizer": {
+        "jwt": {
+            "claims": {"sub": "cognito-user-123"}
+        }
+    }
+}}, None)
     body = json.loads(result["body"])
 
     assert result["statusCode"] == 404

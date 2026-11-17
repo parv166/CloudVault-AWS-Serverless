@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from cloudvault_common import storage
+from cloudvault_common.auth import get_authenticated_user_id
 from cloudvault_common.config import load_config
 from cloudvault_common.errors import CloudVaultError
 from cloudvault_common.http import error_response, parse_json_body, response
@@ -16,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     try:
+        user_id = get_authenticated_user_id(event)
+
         config = load_config()
         logger.setLevel(config.log_level)
 
@@ -27,8 +30,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         )
 
         file_id = str(uuid4())
-        s3_key = f"uploads/{file_id}/{upload.file_name}"
+        s3_key = f"uploads/{user_id}/{file_id}/{upload.file_name}"
+
         metadata = {
+            "user_id": user_id,
             "file_id": file_id,
             "file_name": upload.file_name,
             "file_size": upload.file_size,
@@ -39,6 +44,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         }
 
         uploaded_to_s3 = False
+
         try:
             storage.upload_object(
                 bucket_name=config.bucket_name,
@@ -50,16 +56,24 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             )
             uploaded_to_s3 = True
 
-            storage.save_metadata(table_name=config.table_name, metadata=metadata)
+            storage.save_metadata(
+                table_name=config.table_name,
+                metadata=metadata,
+            )
         except Exception:
             if uploaded_to_s3:
                 try:
-                    storage.delete_object(bucket_name=config.bucket_name, key=s3_key)
+                    storage.delete_object(
+                        bucket_name=config.bucket_name,
+                        key=s3_key,
+                    )
                 except Exception:
-                    logger.exception("Failed to roll back S3 object after metadata write failure")
+                    logger.exception(
+                        "Failed to roll back S3 object after metadata write failure"
+                    )
             raise
 
-        logger.info("File uploaded", extra={"file_id": file_id, "s3_key": s3_key})
+        logger.info("File uploaded", extra={"file_id": file_id})
         return response(201, {"file": metadata}, event=event)
 
     except CloudVaultError as exc:

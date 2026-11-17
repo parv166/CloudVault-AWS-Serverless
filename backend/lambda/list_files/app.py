@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from cloudvault_common import storage
+from cloudvault_common.auth import get_authenticated_user_id
 from cloudvault_common.config import load_config
 from cloudvault_common.errors import CloudVaultError
 from cloudvault_common.http import error_response, response
@@ -13,14 +14,26 @@ logger = logging.getLogger(__name__)
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     try:
+        user_id = get_authenticated_user_id(event)
+
         config = load_config()
         logger.setLevel(config.log_level)
 
-        files = storage.list_metadata(table_name=config.table_name)
-        files.sort(key=lambda item: item.get("upload_time", ""), reverse=True)
+        files = storage.list_metadata(
+            table_name=config.table_name,
+            user_id=user_id,
+        )
+        files.sort(
+            key=lambda item: item.get("upload_time", ""),
+            reverse=True,
+        )
 
         logger.info("Listed files", extra={"count": len(files)})
-        return response(200, {"files": files, "count": len(files)}, event=event)
+        return response(
+            200,
+            {"files": files, "count": len(files)},
+            event=event,
+        )
 
     except CloudVaultError as exc:
         logger.warning("Request failed: %s", exc)

@@ -64,7 +64,7 @@ data "aws_iam_policy_document" "lambda_permissions" {
       "dynamodb:DeleteItem",
       "dynamodb:GetItem",
       "dynamodb:PutItem",
-      "dynamodb:Scan",
+      "dynamodb:Query",
     ]
 
     resources = [aws_dynamodb_table.files.arn]
