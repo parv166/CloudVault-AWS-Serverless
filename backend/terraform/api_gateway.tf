@@ -5,7 +5,7 @@ resource "aws_apigatewayv2_api" "cloudvault" {
   cors_configuration {
     allow_headers = var.cors_allowed_headers
     allow_methods = var.cors_allowed_methods
-    allow_origins = var.cors_allowed_origins
+    allow_origins = local.effective_cors_allowed_origins
     max_age       = 300
   }
 
@@ -63,27 +63,39 @@ resource "aws_apigatewayv2_integration" "delete_file" {
 }
 
 resource "aws_apigatewayv2_route" "upload_file" {
-  api_id    = aws_apigatewayv2_api.cloudvault.id
-  route_key = "POST /files/upload"
-  target    = "integrations/${aws_apigatewayv2_integration.upload_file.id}"
+  authorization_scopes = ["aws.cognito.signin.user.admin"]
+  authorization_type   = "JWT"
+  authorizer_id        = aws_apigatewayv2_authorizer.cognito.id
+  api_id               = aws_apigatewayv2_api.cloudvault.id
+  route_key            = "POST /files/upload"
+  target               = "integrations/${aws_apigatewayv2_integration.upload_file.id}"
 }
 
 resource "aws_apigatewayv2_route" "list_files" {
-  api_id    = aws_apigatewayv2_api.cloudvault.id
-  route_key = "GET /files"
-  target    = "integrations/${aws_apigatewayv2_integration.list_files.id}"
+  authorization_scopes = ["aws.cognito.signin.user.admin"]
+  authorization_type   = "JWT"
+  authorizer_id        = aws_apigatewayv2_authorizer.cognito.id
+  api_id               = aws_apigatewayv2_api.cloudvault.id
+  route_key            = "GET /files"
+  target               = "integrations/${aws_apigatewayv2_integration.list_files.id}"
 }
 
 resource "aws_apigatewayv2_route" "download_file" {
-  api_id    = aws_apigatewayv2_api.cloudvault.id
-  route_key = "GET /files/{id}/download"
-  target    = "integrations/${aws_apigatewayv2_integration.download_file.id}"
+  authorization_scopes = ["aws.cognito.signin.user.admin"]
+  authorization_type   = "JWT"
+  authorizer_id        = aws_apigatewayv2_authorizer.cognito.id
+  api_id               = aws_apigatewayv2_api.cloudvault.id
+  route_key            = "GET /files/{id}/download"
+  target               = "integrations/${aws_apigatewayv2_integration.download_file.id}"
 }
 
 resource "aws_apigatewayv2_route" "delete_file" {
-  api_id    = aws_apigatewayv2_api.cloudvault.id
-  route_key = "DELETE /files/{id}"
-  target    = "integrations/${aws_apigatewayv2_integration.delete_file.id}"
+  authorization_scopes = ["aws.cognito.signin.user.admin"]
+  authorization_type   = "JWT"
+  authorizer_id        = aws_apigatewayv2_authorizer.cognito.id
+  api_id               = aws_apigatewayv2_api.cloudvault.id
+  route_key            = "DELETE /files/{id}"
+  target               = "integrations/${aws_apigatewayv2_integration.delete_file.id}"
 }
 
 resource "aws_lambda_permission" "upload_file" {

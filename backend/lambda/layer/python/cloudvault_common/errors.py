@@ -11,6 +11,11 @@ class BadRequestError(CloudVaultError):
     error_code = "bad_request"
 
 
+class UnauthorizedError(CloudVaultError):
+    status_code = 401
+    error_code = "unauthorized"
+
+
 class NotFoundError(CloudVaultError):
     status_code = 404
     error_code = "not_found"

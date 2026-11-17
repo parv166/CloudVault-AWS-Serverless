@@ -11,7 +11,11 @@ def test_delete_file_removes_object_and_metadata(monkeypatch):
     deleted_metadata = {}
     metadata = {"file_id": "file-1", "s3_key": "uploads/file-1/report.pdf"}
 
-    monkeypatch.setattr(app.storage, "get_metadata", lambda **kwargs: metadata)
+    lookup = {}
+    def get_metadata(**kwargs):
+        lookup.update(kwargs)
+        return metadata
+    monkeypatch.setattr(app.storage, "get_metadata", get_metadata)
     monkeypatch.setattr(app.storage, "delete_object", lambda **kwargs: deleted_object.update(kwargs))
     monkeypatch.setattr(
         app.storage,
@@ -19,13 +23,24 @@ def test_delete_file_removes_object_and_metadata(monkeypatch):
         lambda **kwargs: deleted_metadata.update(kwargs),
     )
 
-    result = app.handler({"pathParameters": {"id": "file-1"}}, None)
+    result = app.handler({"pathParameters": {"id": "file-1"}, "requestContext": {
+    "authorizer": {
+        "jwt": {
+            "claims": {"sub": "cognito-user-123"}
+        }
+    }
+}}, None)
     body = json.loads(result["body"])
 
     assert result["statusCode"] == 200
     assert body["file_id"] == "file-1"
+    assert lookup["user_id"] == "cognito-user-123"
     assert deleted_object == {
         "bucket_name": "test-cloudvault-bucket",
         "key": "uploads/file-1/report.pdf",
     }
-    assert deleted_metadata == {"table_name": "test-cloudvault-table", "file_id": "file-1"}
+    assert deleted_metadata == {
+        "table_name": "test-cloudvault-table",
+        "user_id": "cognito-user-123",
+        "file_id": "file-1",
+    }

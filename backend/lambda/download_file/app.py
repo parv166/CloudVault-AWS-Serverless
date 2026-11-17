@@ -4,19 +4,18 @@ import logging
 from typing import Any
 
 from cloudvault_common import storage
+from cloudvault_common.auth import get_authenticated_user_id
 from cloudvault_common.config import load_config
 from cloudvault_common.errors import CloudVaultError
-from cloudvault_common.http import (
-    error_response,
-    get_path_parameter,
-    response,
-)
+from cloudvault_common.http import error_response, get_path_parameter, response
 
 logger = logging.getLogger(__name__)
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     try:
+        user_id = get_authenticated_user_id(event)
+
         config = load_config()
         logger.setLevel(config.log_level)
 
@@ -24,6 +23,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         metadata = storage.get_metadata(
             table_name=config.table_name,
+            user_id=user_id,
             file_id=file_id,
         )
 
@@ -33,12 +33,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             expires_in_seconds=config.presigned_url_ttl_seconds,
         )
 
-        logger.info(
-            "Generated download URL",
-            extra={
-                "file_id": file_id,
-            },
-        )
+        logger.info("Generated download URL", extra={"file_id": file_id})
 
         return response(
             200,
@@ -51,38 +46,16 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         )
 
     except CloudVaultError as exc:
-        logger.warning(
-            "Request failed: %s",
-            exc,
-        )
-
-        return error_response(
-            exc.status_code,
-            str(exc),
-            exc.error_code,
-            event=event,
-        )
-
+        logger.warning("Request failed: %s", exc)
+        return error_response(exc.status_code, str(exc), exc.error_code, event=event)
     except KeyError:
-        logger.exception(
-            "Metadata record missing s3_key"
-        )
-
+        logger.exception("Metadata record missing s3_key")
         return error_response(
             500,
             "File metadata incomplete",
             "metadata_error",
             event=event,
         )
-
     except Exception:
-        logger.exception(
-            "Unhandled download_file error"
-        )
-
-        return error_response(
-            500,
-            "Internal server error",
-            "internal_error",
-            event=event,
-        )
+        logger.exception("Unhandled download_file error")
+        return error_response(500, "Internal server error", "internal_error", event=event)

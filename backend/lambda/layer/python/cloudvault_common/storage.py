@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 import boto3
+from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 
 from .errors import NotFoundError
@@ -19,15 +20,10 @@ def get_s3_client():
     if _s3_client is None:
         _s3_client = boto3.client(
             "s3",
-            region_name=os.environ.get(
-                "AWS_REGION",
-                "ap-south-1",
-            ),
+            region_name=os.environ.get("AWS_REGION", "ap-south-1"),
             config=Config(
                 signature_version="s3v4",
-                s3={
-                    "addressing_style": "virtual",
-                },
+                s3={"addressing_style": "virtual"},
             ),
         )
 
@@ -38,17 +34,13 @@ def get_dynamodb_resource():
     global _dynamodb_resource
 
     if _dynamodb_resource is None:
-        _dynamodb_resource = boto3.resource(
-            "dynamodb"
-        )
+        _dynamodb_resource = boto3.resource("dynamodb")
 
     return _dynamodb_resource
 
 
 def get_table(table_name: str):
-    return get_dynamodb_resource().Table(
-        table_name
-    )
+    return get_dynamodb_resource().Table(table_name)
 
 
 def upload_object(
@@ -60,35 +52,22 @@ def upload_object(
     file_id: str,
     sse_algorithm: str | None,
 ) -> None:
-
     args: dict[str, Any] = {
         "Bucket": bucket_name,
         "Key": key,
         "Body": content,
         "ContentType": content_type,
-        "Metadata": {
-            "file-id": file_id
-        },
+        "Metadata": {"file-id": file_id},
     }
 
     if sse_algorithm:
-        args["ServerSideEncryption"] = (
-            sse_algorithm
-        )
+        args["ServerSideEncryption"] = sse_algorithm
 
     get_s3_client().put_object(**args)
 
 
-def delete_object(
-    *,
-    bucket_name: str,
-    key: str,
-) -> None:
-
-    get_s3_client().delete_object(
-        Bucket=bucket_name,
-        Key=key,
-    )
+def delete_object(*, bucket_name: str, key: str) -> None:
+    get_s3_client().delete_object(Bucket=bucket_name, Key=key)
 
 
 def save_metadata(
@@ -96,41 +75,31 @@ def save_metadata(
     table_name: str,
     metadata: dict[str, Any],
 ) -> None:
-
-    get_table(table_name).put_item(
-        Item=metadata
-    )
+    get_table(table_name).put_item(Item=metadata)
 
 
 def list_metadata(
     *,
     table_name: str,
+    user_id: str,
 ) -> list[dict[str, Any]]:
-
+    """Query only the authenticated user's partition."""
     table = get_table(table_name)
+    items: list[dict[str, Any]] = []
 
-    items = []
-    scan_kwargs = {}
+    query_kwargs: dict[str, Any] = {
+        "KeyConditionExpression": Key("user_id").eq(user_id),
+    }
 
     while True:
-        result = table.scan(
-            **scan_kwargs
-        )
+        result = table.query(**query_kwargs)
+        items.extend(result.get("Items", []))
 
-        items.extend(
-            result.get("Items", [])
-        )
-
-        last_key = result.get(
-            "LastEvaluatedKey"
-        )
-
+        last_key = result.get("LastEvaluatedKey")
         if not last_key:
             break
 
-        scan_kwargs[
-            "ExclusiveStartKey"
-        ] = last_key
+        query_kwargs["ExclusiveStartKey"] = last_key
 
     return items
 
@@ -138,23 +107,21 @@ def list_metadata(
 def get_metadata(
     *,
     table_name: str,
+    user_id: str,
     file_id: str,
 ) -> dict[str, Any]:
-
-    result = get_table(
-        table_name
-    ).get_item(
+    """A file is visible only under its owner's composite key."""
+    result = get_table(table_name).get_item(
         Key={
-            "file_id": file_id
+            "user_id": user_id,
+            "file_id": file_id,
         }
     )
 
     item = result.get("Item")
-
     if not item:
-        raise NotFoundError(
-            f"File '{file_id}' was not found"
-        )
+        # Do not reveal whether another user owns this file ID.
+        raise NotFoundError("File was not found")
 
     return item
 
@@ -162,14 +129,13 @@ def get_metadata(
 def delete_metadata(
     *,
     table_name: str,
+    user_id: str,
     file_id: str,
 ) -> None:
-
-    get_table(
-        table_name
-    ).delete_item(
+    get_table(table_name).delete_item(
         Key={
-            "file_id": file_id
+            "user_id": user_id,
+            "file_id": file_id,
         }
     )
 
@@ -180,13 +146,9 @@ def create_download_url(
     key: str,
     expires_in_seconds: int,
 ) -> str:
-
     return get_s3_client().generate_presigned_url(
         ClientMethod="get_object",
-        Params={
-            "Bucket": bucket_name,
-            "Key": key,
-        },
+        Params={"Bucket": bucket_name, "Key": key},
         ExpiresIn=expires_in_seconds,
         HttpMethod="GET",
     )

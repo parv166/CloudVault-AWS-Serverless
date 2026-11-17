@@ -1,4 +1,5 @@
 import axios from "axios";
+import { fetchAuthSession } from "aws-amplify/auth";
 
 function normalizeApiBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "");
@@ -14,10 +15,21 @@ const client = axios.create({
   },
 });
 
-client.interceptors.request.use((config) => {
+// Attach the Cognito ACCESS token to every protected API request.
+client.interceptors.request.use(async (config) => {
   if (!API_BASE_URL) {
-    return Promise.reject(new Error("VITE_API_URL is not configured."));
+    throw new Error("VITE_API_URL is not configured.");
   }
+
+  const session = await fetchAuthSession();
+  const accessToken = session.tokens?.accessToken?.toString();
+
+  if (!accessToken) {
+    throw new Error("Your session is missing. Please sign in again.");
+  }
+
+  config.headers = config.headers ?? {};
+  config.headers.Authorization = `Bearer ${accessToken}`;
 
   return config;
 });
@@ -29,6 +41,13 @@ export function getApiBaseUrl() {
 export function getApiErrorMessage(error) {
   if (error.message === "VITE_API_URL is not configured.") {
     return "CloudVault API URL is not configured. Set VITE_API_URL and rebuild the frontend.";
+  }
+
+  if (
+    error.response?.status === 401 ||
+    error.message === "Your session is missing. Please sign in again."
+  ) {
+    return "Your session is missing or expired. Please sign in again.";
   }
 
   if (error.response?.data?.error?.message) {
@@ -55,11 +74,16 @@ function readFileAsBase64(file, onProgress) {
     const reader = new FileReader();
 
     reader.onerror = () => reject(new Error("Unable to read the selected file."));
+
     reader.onload = () => {
       const result = String(reader.result || "");
-      const contentBase64 = result.includes(",") ? result.split(",")[1] : result;
+      const contentBase64 = result.includes(",")
+        ? result.split(",")[1]
+        : result;
+
       resolve(contentBase64);
     };
+
     reader.onprogress = (event) => {
       if (event.lengthComputable && onProgress) {
         onProgress(Math.round((event.loaded / event.total) * 35));
@@ -77,6 +101,7 @@ export async function fetchFiles() {
 
 export async function uploadFile(file, onProgress) {
   onProgress?.(5);
+
   const contentBase64 = await readFileAsBase64(file, onProgress);
   onProgress?.(40);
 
@@ -89,13 +114,12 @@ export async function uploadFile(file, onProgress) {
     },
     {
       onUploadProgress: (progressEvent) => {
-        if (!progressEvent.total) {
-          return;
-        }
+        if (!progressEvent.total) return;
 
         const uploadPercent = Math.round(
           (progressEvent.loaded / progressEvent.total) * 55,
         );
+
         onProgress?.(40 + uploadPercent);
       },
     },
@@ -106,7 +130,10 @@ export async function uploadFile(file, onProgress) {
 }
 
 export async function getDownloadUrl(fileId) {
-  const { data } = await client.get(`/files/${encodeURIComponent(fileId)}/download`);
+  const { data } = await client.get(
+    `/files/${encodeURIComponent(fileId)}/download`,
+  );
+
   return data?.download_url;
 }
 

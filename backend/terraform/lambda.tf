@@ -45,7 +45,7 @@ locals {
     PRESIGNED_URL_TTL_SECONDS = tostring(var.presigned_url_ttl_seconds)
     LOG_LEVEL                 = var.log_level
     S3_SSE_ALGORITHM          = "AES256"
-    CORS_ALLOWED_ORIGINS      = join(",", var.cors_allowed_origins)
+    CORS_ALLOWED_ORIGINS      = join(",", local.effective_cors_allowed_origins)
     CORS_ALLOWED_HEADERS      = join(",", var.cors_allowed_headers)
     CORS_ALLOWED_METHODS      = join(",", var.cors_allowed_methods)
   }

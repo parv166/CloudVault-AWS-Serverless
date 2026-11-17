@@ -26,7 +26,7 @@ provider "aws" {
 variable "aws_region" {
   description = "AWS region where CloudVault resources are deployed."
   type        = string
-  default     = "us-east-1"
+  default     = "ap-south-1"
 }
 
 variable "project_name" {
@@ -80,7 +80,7 @@ variable "log_level" {
 variable "cors_allowed_origins" {
   description = "Allowed browser origins for API Gateway CORS. Use exact CloudFront/custom-domain origins in production."
   type        = list(string)
-  default     = ["*"]
+  default     = []
 }
 
 variable "cors_allowed_headers" {
