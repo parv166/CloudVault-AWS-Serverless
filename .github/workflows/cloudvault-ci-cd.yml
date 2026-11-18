@@ -151,6 +151,8 @@ jobs:
 
       - name: Capture Terraform outputs
         run: |
+          set -euo pipefail
+
           echo "API_ENDPOINT=$(terraform -chdir=backend/terraform output -raw api_endpoint)" >> "$GITHUB_ENV"
 
           echo "FRONTEND_BUCKET=$(terraform -chdir=backend/terraform output -raw frontend_bucket_name)" >> "$GITHUB_ENV"
@@ -158,6 +160,10 @@ jobs:
           echo "CLOUDFRONT_DISTRIBUTION_ID=$(terraform -chdir=backend/terraform output -raw frontend_cloudfront_distribution_id)" >> "$GITHUB_ENV"
 
           echo "FRONTEND_URL=$(terraform -chdir=backend/terraform output -raw frontend_url)" >> "$GITHUB_ENV"
+
+          echo "COGNITO_USER_POOL_ID=$(terraform -chdir=backend/terraform output -raw cognito_user_pool_id)" >> "$GITHUB_ENV"
+
+          echo "COGNITO_CLIENT_ID=$(terraform -chdir=backend/terraform output -raw cognito_user_pool_client_id)" >> "$GITHUB_ENV"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -184,7 +190,15 @@ jobs:
       - name: Build frontend for production
         working-directory: frontend
         run: |
+          set -euo pipefail
+
+          : "${API_ENDPOINT:?API_ENDPOINT is missing}"
+          : "${COGNITO_USER_POOL_ID:?Cognito User Pool ID is missing}"
+          : "${COGNITO_CLIENT_ID:?Cognito App Client ID is missing}"
+
           VITE_API_URL="$API_ENDPOINT" \
+          VITE_COGNITO_USER_POOL_ID="$COGNITO_USER_POOL_ID" \
+          VITE_COGNITO_CLIENT_ID="$COGNITO_CLIENT_ID" \
           npm run build
 
       - name: Upload frontend assets
